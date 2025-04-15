@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "nfd_to_nfc"
+name = "nfc"
 version = "0.1.0"
 dependencies = [
  "pico-args",
