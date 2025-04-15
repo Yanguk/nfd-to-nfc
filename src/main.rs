@@ -1,61 +1,43 @@
-use clap::{App, Arg};
-use colored::Colorize;
+use pico_args::Arguments;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
 use unicode_normalization::UnicodeNormalization;
 use walkdir::WalkDir;
 
-fn main() {
-    let matches = App::new("NFD to NFC Filename Converter")
-        .version("1.0")
-        .author("Your Name")
-        .about("Convert filenames from NFD to NFC Unicode normalization form")
-        .arg(
-            Arg::with_name("directory")
-                .short('d')
-                .long("directory")
-                .value_name("DIRECTORY")
-                .help("Directory to process (default: current directory)")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("recursive")
-                .short('r')
-                .long("recursive")
-                .help("Process directories recursively"),
-        )
-        .arg(
-            Arg::with_name("dry-run")
-                .long("dry-run")
-                .help("Show what would be done without actually renaming files"),
-        )
-        .get_matches();
+const HELP: &str = "\
+NFD to NFC Filename Converter
 
-    let current_dir = env::current_dir().expect("Failed to get current directory");
+Usage:
+  nfd_to_nfc [options]
 
-    let directory = match matches.value_of("directory") {
-        Some(dir) => PathBuf::from(dir),
-        None => current_dir,
-    };
+Options:
+  -d, --directory DIR  Directory to process (default: current directory)
+  -r, --recursive      Process directories recursively
+  --dry-run            Show what would be done without actually renaming files
+  -h, --help           Show this help
+";
 
-    let recursive = matches.is_present("recursive");
-    let dry_run = matches.is_present("dry-run");
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = Arguments::from_env();
 
-    println!(
-        "{} {} {}",
-        "NFD to NFC Filename Converter".bright_green().bold(),
-        "v1.0".bright_blue(),
-        if dry_run {
-            "[DRY RUN]".bright_yellow()
-        } else {
-            "".normal()
-        }
-    );
-    println!(
-        "Processing directory: {}",
-        directory.display().to_string().cyan()
-    );
+    if args.contains(["-h", "--help"]) {
+        println!("{}", HELP);
+        return Ok(());
+    }
+
+    let directory: PathBuf = args
+        .opt_value_from_str(["-d", "--directory"])?
+        .unwrap_or_else(|| env::current_dir().expect("Failed to get current directory"));
+
+    let recursive = args.contains(["-r", "--recursive"]);
+    let dry_run = args.contains("--dry-run");
+
+    println!("NFD to NFC Filename Converter");
+    if dry_run {
+        println!("[DRY RUN]");
+    }
+    println!("Processing directory: {}", directory.display());
 
     let mut total_files = 0;
     let mut converted_files = 0;
@@ -73,26 +55,27 @@ fn main() {
                     total_files += 1;
 
                     let path = entry.path();
-                    let file_name = path.file_name().unwrap().to_str().unwrap();
-                    let parent = path.parent().unwrap();
 
-                    let nfc_file_name = file_name.nfc().collect::<String>();
+                    if let Some(file_name) = path.file_name() {
+                        if let Some(file_name_str) = file_name.to_str() {
+                            let nfc_file_name = file_name_str.nfc().collect::<String>();
 
-                    if file_name != nfc_file_name {
-                        converted_files += 1;
-                        let new_path = parent.join(&nfc_file_name);
+                            if file_name_str != nfc_file_name {
+                                converted_files += 1;
+                                let parent = path.parent().unwrap();
+                                let new_path = parent.join(&nfc_file_name);
 
-                        println!(
-                            "{} '{}' {} '{}'",
-                            "Renaming:".bright_yellow(),
-                            path.display().to_string().red(),
-                            "→".bright_white(),
-                            new_path.display().to_string().green()
-                        );
+                                println!(
+                                    "Renaming: '{}' → '{}'",
+                                    path.display(),
+                                    new_path.display()
+                                );
 
-                        if !dry_run {
-                            if let Err(e) = fs::rename(path, &new_path) {
-                                eprintln!("Error renaming file {}: {}", path.display(), e);
+                                if !dry_run {
+                                    if let Err(e) = fs::rename(path, &new_path) {
+                                        eprintln!("Error renaming file {}: {}", path.display(), e);
+                                    }
+                                }
                             }
                         }
                     }
@@ -104,26 +87,14 @@ fn main() {
         }
     }
 
-    println!("\n{} {}", "Summary:".bright_cyan().bold(), "-".repeat(30));
-    println!(
-        "{}: {}",
-        "Total files/directories processed".white(),
-        total_files.to_string().bright_white()
-    );
-    println!(
-        "{}: {}",
-        "Files/directories converted".white(),
-        converted_files.to_string().bright_white()
-    );
+    println!("\nSummary:");
+    println!("Total files/directories processed: {}", total_files);
+    println!("Files/directories converted: {}", converted_files);
 
     if dry_run {
-        println!(
-            "\n{}",
-            "This was a dry run. No files were actually renamed.".bright_yellow()
-        );
-        println!(
-            "{}",
-            "Run without --dry-run to perform the conversion.".bright_yellow()
-        );
+        println!("\nThis was a dry run. No files were actually renamed.");
+        println!("Run without --dry-run to perform the conversion.");
     }
+
+    Ok(())
 }
