@@ -1,6 +1,10 @@
 [package]
-name = "nfd-to-nfc"
+name = "nfd_to_nfc"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+unicode-normalization = "0.1.22"
+walkdir = "2.3.3"
+clap = "3.2.25"
+colored = "2.0.4"
