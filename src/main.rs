@@ -9,7 +9,7 @@ const HELP: &str = "\
 NFD to NFC Filename Converter
 
 Usage:
-  nfd_to_nfc [options]
+  nfc [options]
 
 Options:
   -d, --directory DIR  Directory to process (default: current directory)
